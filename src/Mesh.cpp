@@ -55,7 +55,25 @@ void Mesh::simplifyMesh(const char* input, const char* output, int faceCnt){
 
 void Mesh::convertMesh()
 {
-	//TODO
+	//Prepare the HEVertex
+	for (Vertex vertex : V)
+	{
+		HEVertex heVertex;
+		heVertex.x = vertex.x;
+		heVertex.y = vertex.y;
+		heVertex.z = vertex.z;
+
+		HEV.push_back(heVertex);
+	}
+
+	//Prepare the HEEdge
+	for (Face face : F)
+	{
+		HEEdge* halfEdge = new HEEdge();
+		halfEdge->endVertex = &HEV[face.a];
+		HEE.push_back(*halfEdge);
+	}
+
 	for (Face face : F)
 	{
 		//Each 3-verticed face has 3 Half-edges
@@ -63,6 +81,8 @@ void Mesh::convertMesh()
 		halfEdge.endVertex;
 
 	}
+
+	//Prepare the HEFace
 }
 
 void Mesh::revertMesh()
