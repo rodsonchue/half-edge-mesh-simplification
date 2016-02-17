@@ -55,10 +55,19 @@ void Mesh::simplifyMesh(const char* input, const char* output, int faceCnt){
 
 void Mesh::convertMesh()
 {
+	//TODO
+	for (Face face : F)
+	{
+		//Each 3-verticed face has 3 Half-edges
+		HEEdge halfEdge;
+		halfEdge.endVertex;
+
+	}
 }
 
 void Mesh::revertMesh()
 {
+	//TODO
 }
 
 bool operator==(const HEVertex& lhs, const HEVertex& rhs)
@@ -86,16 +95,16 @@ std::vector<HEVertex> Mesh::neighborVertices(HEVertex v)
 {
 	std::vector<HEVertex> neighbors;
 	
-	HEEdge firstOutEdge = v.outEdge;
-	HEEdge currOutEdge = v.outEdge;
+	HEEdge* firstOutEdge = v.outEdge;
+	HEEdge* currOutEdge = v.outEdge;
 
 	do {
 		//The end vertex of this half-edge is a neighbor vertex
-		neighbors.push_back(currOutEdge.endVertex);
+		neighbors.push_back(*currOutEdge->endVertex);
 
 		//Get the next outgoing half-edge
 		//The next edge of its twin is also an outgoing half-edge from v
-		currOutEdge = currOutEdge.twinEdge.nextEdge;
+		currOutEdge = currOutEdge->twinEdge->nextEdge;
 
 	} while (currOutEdge != firstOutEdge);
 
@@ -110,16 +119,16 @@ std::vector<HEFace> Mesh::neighborFaces(HEVertex v)
 {
 	std::vector<HEFace> neighbors;
 
-	HEEdge firstOutEdge = v.outEdge;
-	HEEdge currOutEdge = v.outEdge;
+	HEEdge* firstOutEdge = v.outEdge;
+	HEEdge* currOutEdge = v.outEdge;
 
 	do {
 		//The end vertex of this half-edge is a neighbor vertex
-		neighbors.push_back(currOutEdge.adjFace);
+		neighbors.push_back(*currOutEdge->adjFace);
 
 		//Get the next outgoing half-edge
 		//The next edge of its twin is also an outgoing half-edge from v
-		currOutEdge = currOutEdge.twinEdge.nextEdge;
+		currOutEdge = currOutEdge->twinEdge->nextEdge;
 
 	} while (currOutEdge != firstOutEdge);
 
@@ -134,16 +143,16 @@ std::vector<HEVertex> Mesh::adjacentVertices(HEFace f)
 {
 	std::vector<HEVertex> adjVertices;
 
-	HEEdge firstOutEdge = f.edge;
-	HEEdge currOutEdge = f.edge;
+	HEEdge* firstOutEdge = f.edge;
+	HEEdge* currOutEdge = f.edge;
 
 	do {
 		//The end vertex of this half-edge is a neighbor vertex
-		adjVertices.push_back(currOutEdge.adjFace);
+		adjVertices.push_back(*currOutEdge->adjFace);
 
 		//Get the next outgoing half-edge
 		//The next edge is also adjacent to the same face
-		currOutEdge = currOutEdge.nextEdge;
+		currOutEdge = currOutEdge->nextEdge;
 
 	} while (currOutEdge != firstOutEdge);
 

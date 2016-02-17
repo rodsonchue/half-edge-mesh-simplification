@@ -30,27 +30,27 @@ typedef struct {
 	float z;
 
 	//It also stores an outgoing half-edge
-	HEEdge outEdge;
+	HEEdge* outEdge;
 } HEVertex;
 
 typedef struct {
 	//An edge stores a vertex that it points to
-	HEVertex endVertex;
+	HEVertex* endVertex;
 
 	//The adjacent face
-	HEFace adjFace;
+	HEFace* adjFace;
 
 	//The next and previous half edges on the same adj face
-	HEEdge prevEdge;
-	HEEdge nextEdge;
+	HEEdge* prevEdge;
+	HEEdge* nextEdge;
 
 	//Its twin half edge (points in opposite direction)
-	HEEdge twinEdge;
+	HEEdge* twinEdge;
 } HEEdge;
 
 typedef struct {
 	//A face stores one of its adjacent Half Edge
-	HEEdge edge;
+	HEEdge* edge;
 } HEFace;
 
 class Mesh{
