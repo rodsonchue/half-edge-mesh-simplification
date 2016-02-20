@@ -10,47 +10,77 @@
 typedef unsigned int uint;
 
 //data structure of indexed face set
-typedef struct {
+typedef struct Vertex {
 	//3d coordinates
 	float x;
 	float y;
 	float z;
 } Vertex;
 
-typedef struct{
+typedef struct Face {
 	//three vertex ids
 	uint a,b,c;
 } Face;
 
 //data structure of Halfedge
-typedef struct {
+//Vertex of Half-Edge Data Structure
+typedef struct HEVertex {
 	//A vertex can be expressed in terms of its 3d coordinates
 	float x;
 	float y;
 	float z;
 
 	//It also stores an outgoing half-edge
-	HEEdge* outEdge;
+	struct HEEdge* outEdge;
+
+	bool operator==(HEVertex other) const
+	{
+		return x == other.x
+			&& y == other.y
+			&& z == other.z;
+	}
+
+	//Used when using struct as key of map
+	bool operator<(HEVertex other) const
+	{
+		return x < other.x
+			|| (x == other.x && y < other.y)
+			|| (x == other.x && y == other.y && z < other.z);
+	}
+
 } HEVertex;
 
-typedef struct {
+//Edge of Half-Edge Data Structure
+typedef struct HEEdge {
 	//An edge stores a vertex that it points to
-	HEVertex* endVertex;
+	struct HEVertex* endVertex;
 
 	//The adjacent face
-	HEFace* adjFace;
+	struct HEFace* adjFace;
 
 	//The next and previous half edges on the same adj face
-	HEEdge* prevEdge;
-	HEEdge* nextEdge;
+	struct HEEdge* prevEdge;
+	struct HEEdge* nextEdge;
 
 	//Its twin half edge (points in opposite direction)
-	HEEdge* twinEdge;
+	struct HEEdge* twinEdge;
+
+	bool operator!=(HEEdge other) const
+	{
+		return !(endVertex == other.endVertex);
+	}
+
+	bool operator==(HEEdge other) const
+	{
+		return endVertex == other.endVertex;
+	}
+
 } HEEdge;
 
-typedef struct {
+//Face of Half-Edge Data Structure
+typedef struct HEFace {
 	//A face stores one of its adjacent Half Edge
-	HEEdge* edge;
+	struct HEEdge* edge;
 } HEFace;
 
 class Mesh{
