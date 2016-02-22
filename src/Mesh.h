@@ -31,7 +31,7 @@ typedef struct HEVertex {
 	float z;
 
 	//It also stores an outgoing half-edge
-	struct HEEdge* outEdge;
+	struct HEEdge* outEdge = nullptr;
 
 	bool operator==(HEVertex other) const
 	{
@@ -40,7 +40,7 @@ typedef struct HEVertex {
 			&& z == other.z;
 	}
 
-	//Used when using struct as key of map
+	//Used when using struct as key of map, is the default comparator
 	bool operator<(HEVertex other) const
 	{
 		return x < other.x
@@ -53,17 +53,17 @@ typedef struct HEVertex {
 //Edge of Half-Edge Data Structure
 typedef struct HEEdge {
 	//An edge stores a vertex that it points to
-	struct HEVertex* endVertex;
+	struct HEVertex* endVertex = nullptr;
 
 	//The adjacent face
-	struct HEFace* adjFace;
+	struct HEFace* adjFace = nullptr;
 
 	//The next and previous half edges on the same adj face
-	struct HEEdge* prevEdge;
-	struct HEEdge* nextEdge;
+	struct HEEdge* prevEdge = nullptr;
+	struct HEEdge* nextEdge = nullptr;
 
 	//Its twin half edge (points in opposite direction)
-	struct HEEdge* twinEdge;
+	struct HEEdge* twinEdge = nullptr;
 
 	bool operator!=(HEEdge other) const
 	{
@@ -80,7 +80,7 @@ typedef struct HEEdge {
 //Face of Half-Edge Data Structure
 typedef struct HEFace {
 	//A face stores one of its adjacent Half Edge
-	struct HEEdge* edge;
+	struct HEEdge* edge = nullptr;
 } HEFace;
 
 class Mesh{

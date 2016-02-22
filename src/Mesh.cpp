@@ -76,77 +76,89 @@ void Mesh::convertMesh()
 
 	//Prepare the HEEdge and HEFace
 	//And update HEVertex's outgoing edge
+
+	//Stores HEEdges that MAY* have a twin edge, not all edges may have twins (boundary edges)
 	std::map<std::pair<uint, uint>, HEEdge*> edgeMap;
 	std::map<std::pair<uint, uint>, HEEdge*>::iterator edgeMapIt;
 
 	for (Face face : F)
 	{
-		std::cout << "Working on Face with Vertex Indexes (" << face.a << ", " << face.b << ", " << face.c << ")" << std::endl;
-		HEFace heFace;
+		//std::cout << "Working on Face with Vertex Indexes (" << face.a << ", " << face.b << ", " << face.c << ")" << std::endl;
+		HEFace* heFace = (HEFace*) malloc(sizeof(HEFace));
 
 		/*
 		                 a
-		                / |\ halfEdge
+		                / |\ halfEdge (point of reference)
 		halfEdgeNext  |/    \
 		              b------>c
 		                halfEdgePrev
 		*/
 
 		//Each half edge takes their respective vertex index
-		HEEdge halfEdge;
-		halfEdge.endVertex = &HEV[face.a];
-		halfEdge.adjFace = &heFace;
-		HEE.push_back(halfEdge);
-		edgeMap[std::pair<uint,uint>(face.a, face.c)] = &halfEdge;
 
+		//Half edge (c->a)
+		HEEdge* halfEdge = (HEEdge*)malloc(sizeof(HEEdge));
+		halfEdge->endVertex = &HEV[face.a];
+		halfEdge->adjFace = heFace;
+		HEE.push_back(*halfEdge);
+		edgeMap[std::pair<uint,uint>(face.a, face.c)] = halfEdge;
+
+		//Half edge (a->b)
+		HEEdge* halfEdgeNext = (HEEdge*)malloc(sizeof(HEEdge));
+		halfEdgeNext->endVertex = &HEV[face.b];
+		halfEdgeNext->adjFace = heFace;
+		HEE.push_back(*halfEdgeNext);
+		edgeMap[std::pair<uint, uint>(face.b, face.a)] = halfEdgeNext;
+
+		//Half edge (b->c)
+		HEEdge* halfEdgePrev = (HEEdge*)malloc(sizeof(HEEdge));
+		halfEdgePrev->endVertex = &HEV[face.c];
+		halfEdgePrev->adjFace = heFace;
+		HEE.push_back(*halfEdgePrev);
+
+		//Update HEVertex outgoing edges
+		HEV[face.a].outEdge = halfEdgeNext;
+		HEV[face.b].outEdge = halfEdgePrev;
+		HEV[face.c].outEdge = halfEdge;
+
+		//Link the 3 half edges
+		halfEdge->nextEdge = halfEdgeNext;
+		halfEdge->prevEdge = halfEdgePrev;
+
+		halfEdgeNext->nextEdge = halfEdgePrev;
+		halfEdgeNext->prevEdge = halfEdge;
+
+		halfEdgePrev->nextEdge = halfEdge;
+		halfEdgePrev->prevEdge = halfEdgeNext;
+
+		//Link twin edges, remove from map once linked (no longer needed to be accessed)
+		//Increases access time to the remaining K,V pairs
 		edgeMapIt = edgeMap.find(std::pair<uint, uint>(face.c, face.a));
 		if (edgeMapIt != edgeMap.end()) {
 			edgeMap[std::pair<uint, uint>(face.a, face.c)]->twinEdge = edgeMapIt->second;
-			edgeMap[std::pair<uint, uint>(face.c, face.a)]->twinEdge = &halfEdge;
+			edgeMap[std::pair<uint, uint>(face.c, face.a)]->twinEdge = halfEdge;
+			edgeMap.erase(std::pair<uint, uint>(face.a, face.c));
+			edgeMap.erase(std::pair<uint, uint>(face.c, face.a));
 		}
-
-		HEEdge halfEdgeNext;
-		halfEdgeNext.endVertex = &HEV[face.b];
-		halfEdgeNext.adjFace = &heFace;
-		HEE.push_back(halfEdgeNext);
-		edgeMap[std::pair<uint, uint>(face.b, face.a)] = &halfEdgeNext;
-
 		edgeMapIt = edgeMap.find(std::pair<uint, uint>(face.a, face.b));
 		if (edgeMapIt != edgeMap.end()) {
 			edgeMap[std::pair<uint, uint>(face.b, face.a)]->twinEdge = edgeMapIt->second;
-			edgeMap[std::pair<uint, uint>(face.a, face.b)]->twinEdge = &halfEdgeNext;
+			edgeMap[std::pair<uint, uint>(face.a, face.b)]->twinEdge = halfEdgeNext;
+			edgeMap.erase(std::pair<uint, uint>(face.b, face.a));
+			edgeMap.erase(std::pair<uint, uint>(face.a, face.b));
 		}
-
-		HEEdge halfEdgePrev;
-		halfEdgePrev.endVertex = &HEV[face.c];
-		halfEdgePrev.adjFace = &heFace;
-		HEE.push_back(halfEdgePrev);
-		edgeMap[std::pair<uint, uint>(face.c, face.b)] = &halfEdgePrev;
-
+		edgeMap[std::pair<uint, uint>(face.c, face.b)] = halfEdgePrev;
 		edgeMapIt = edgeMap.find(std::pair<uint, uint>(face.b, face.c));
 		if (edgeMapIt != edgeMap.end()) {
 			edgeMap[std::pair<uint, uint>(face.b, face.c)]->twinEdge = edgeMapIt->second;
-			edgeMap[std::pair<uint, uint>(face.c, face.b)]->twinEdge = &halfEdgePrev;
+			edgeMap[std::pair<uint, uint>(face.c, face.b)]->twinEdge = halfEdgePrev;
+			edgeMap.erase(std::pair<uint, uint>(face.b, face.c));
+			edgeMap.erase(std::pair<uint, uint>(face.c, face.b));
 		}
-
-		//Update HEVertex outgoing edges
-		HEV[face.a].outEdge = &halfEdgeNext;
-		HEV[face.b].outEdge = &halfEdgePrev;
-		HEV[face.c].outEdge = &halfEdge;
-
+		
 		//Face stores one of its half edge
-		heFace.edge = &halfEdge;
-		HEF.push_back(heFace);
-
-		//Link the 3 half edges
-		halfEdge.nextEdge = &halfEdgeNext;
-		halfEdge.prevEdge = &halfEdgePrev;
-
-		halfEdgeNext.nextEdge = &halfEdgePrev;
-		halfEdgeNext.prevEdge = &halfEdge;
-
-		halfEdgePrev.nextEdge = &halfEdge;
-		halfEdgePrev.prevEdge = &halfEdgeNext;
+		heFace->edge = halfEdge;
+		HEF.push_back(*heFace);
 	}
 }
 
@@ -160,10 +172,11 @@ void Mesh::revertMesh()
 	std::map<HEVertex, uint> vertexIndex;
 
 	for (HEVertex eaVertex : HEV) {
+		/*
 		std::cout << "Working on HEVertex (" << eaVertex.x << ", "
 											<< eaVertex.y << ", "
 											<< eaVertex.z << ", "
-											<< ")" << std::endl;
+											<< ")" << std::endl;*/
 
 		Vertex vertex;
 		vertex.x = eaVertex.x;
@@ -174,11 +187,11 @@ void Mesh::revertMesh()
 	}
 
 	for (HEFace eaFace : HEF) {
-		
+		/*
 		std::cout << "Working on HEFace containing endVertex (" << eaFace.edge->endVertex->x << ", "
 																<< eaFace.edge->endVertex->y << ", "
 																<< eaFace.edge->endVertex->z << ", "
-																<< ")" << std::endl;
+																<< ")" << std::endl;*/
 		Face face;
 		face.a = vertexIndex[*eaFace.edge->endVertex];
 		face.b = vertexIndex[*eaFace.edge->nextEdge->endVertex];
