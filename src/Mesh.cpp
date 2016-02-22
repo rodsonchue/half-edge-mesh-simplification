@@ -70,6 +70,7 @@ void Mesh::convertMesh()
 		heVertex.x = vertex.x;
 		heVertex.y = vertex.y;
 		heVertex.z = vertex.z;
+		heVertex.isValid = true;
 
 		HEV.push_back(heVertex);
 	}
@@ -204,16 +205,16 @@ void Mesh::revertMesh()
 *	General approach: get all neighbour vertices by getting all outgoing half-edges from v
 *	See also: HEEdge equality using != operator (minimalistic)
 */
-std::vector<HEVertex> Mesh::neighborVertices(HEVertex v)
+std::vector<HEVertex*> Mesh::neighborVertices(HEVertex* v)
 {
-	std::vector<HEVertex> neighbors;
+	std::vector<HEVertex*> neighbors;
 	
-	HEEdge* firstOutEdge = v.outEdge;
-	HEEdge* currOutEdge = v.outEdge;
+	HEEdge* firstOutEdge = v->outEdge;
+	HEEdge* currOutEdge = v->outEdge;
 
 	do {
 		//The end vertex of this half-edge is a neighbor vertex
-		neighbors.push_back(*currOutEdge->endVertex);
+		neighbors.push_back(currOutEdge->endVertex);
 
 		//Get the next outgoing half-edge
 		//The next edge of its twin is also an outgoing half-edge from v
@@ -228,16 +229,16 @@ std::vector<HEVertex> Mesh::neighborVertices(HEVertex v)
 *	General approach: get all neighbour faces by getting all outgoing half-edges from v
 *	See also: HEEdge equality using != operator (minimalistic)
 */
-std::vector<HEFace> Mesh::neighborFaces(HEVertex v)
+std::vector<HEFace*> Mesh::neighborFaces(HEVertex* v)
 {
-	std::vector<HEFace> neighbors;
+	std::vector<HEFace*> neighbors;
 
-	HEEdge* firstOutEdge = v.outEdge;
-	HEEdge* currOutEdge = v.outEdge;
+	HEEdge* firstOutEdge = v->outEdge;
+	HEEdge* currOutEdge = v->outEdge;
 
 	do {
 		//The end vertex of this half-edge is a neighbor vertex
-		neighbors.push_back(*currOutEdge->adjFace);
+		neighbors.push_back(currOutEdge->adjFace);
 
 		//Get the next outgoing half-edge
 		//The next edge of its twin is also an outgoing half-edge from v
@@ -252,16 +253,16 @@ std::vector<HEFace> Mesh::neighborFaces(HEVertex v)
 *	General approach: get all adjacent vertices by getting all half-edges adjacent to face
 *	See also: HEEdge equality using != operator (minimalistic)
 */
-std::vector<HEVertex> Mesh::adjacentVertices(HEFace f)
+std::vector<HEVertex*> Mesh::adjacentVertices(HEFace* f)
 {
-	std::vector<HEVertex> adjVertices;
+	std::vector<HEVertex*> adjVertices;
 
-	HEEdge* firstOutEdge = f.edge;
-	HEEdge* currOutEdge = f.edge;
+	HEEdge* firstOutEdge = f->edge;
+	HEEdge* currOutEdge = f->edge;
 
 	do {
 		//The end vertex of this half-edge is a neighbor vertex
-		adjVertices.push_back(*currOutEdge->endVertex);
+		adjVertices.push_back(currOutEdge->endVertex);
 
 		//Get the next outgoing half-edge
 		//The next edge is also adjacent to the same face
@@ -278,4 +279,105 @@ int Mesh::Vcnt(){
 
 int Mesh::Fcnt(){
 	return HEF.size();
+}
+
+void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
+	if (!v) {
+		//u is a vertex by itself, we just delete it
+		delete u;
+		return;
+	}
+
+	//Otherwise v is a valid vertex
+	std::vector<HEVertex*> neighbours = neighborVertices(u);
+
+	//Delete triangles (faces) that have both u,v as vertices
+	//TODO
+	std::vector<HEFace*> adjFaces = neighborFaces(u);
+	for (HEFace* eaFace : adjFaces)
+	{
+		if (faceHasVertex(eaFace, v)) {
+			for (HEEdge* eaAdjEdge : adjacentEdges(eaFace)) {
+				//Disassociate with this face
+				eaAdjEdge->adjFace = nullptr;
+			}
+			eaFace->edge = nullptr;
+		}
+	}
+
+	//Update remaining triangles to use v instead of u
+	for (HEFace* eaFace : adjFaces)
+	{
+		if (!eaFace->edge) {
+			replaceVertex(eaFace, u, v);
+		}
+	}
+
+	//Invalidate vertex u
+	u->isValid = false;
+
+	//TODO
+	//Recompute edge collapse cost in neighbourhood
+}
+
+bool Mesh::faceHasVertex(HEFace* f, HEVertex* v) {
+
+	for (HEVertex* u : adjacentVertices(f)) {
+		//Pointers are pointing to the same vertex
+		if (u == v) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void Mesh::replaceVertex(HEFace* f, HEVertex* u, HEVertex* v) {
+	bool notFound = true;
+	HEEdge* initialEdge = f->edge;
+	HEEdge* currEdge = f->edge;
+	do {
+		if (currEdge->endVertex == u) {
+			currEdge->endVertex = v;
+			return;
+		}
+		currEdge = currEdge->nextEdge;
+	} while (currEdge != initialEdge);
+	
+	//Only reaches here if the vertex u is not part of the face f
+	return;
+}
+
+std::vector<HEEdge*> Mesh::adjacentEdges(HEFace* f) {
+	std::vector<HEEdge*> adjEdges;
+	if (!f->edge) {
+		return adjEdges;
+	}
+
+	HEEdge* initialEdge = f->edge;
+	HEEdge* currEdge = f->edge;
+	do {
+		adjEdges.push_back(currEdge);
+		currEdge = currEdge->nextEdge;
+	} while (currEdge != initialEdge);
+
+	return adjEdges;
+}
+
+void Mesh::removeInvalids() {
+	std::vector<HEVertex> newHEV;
+	for (HEVertex v : HEV) {
+		if (v.isValid) {
+			newHEV.push_back(v);
+		}
+	}
+	HEV = newHEV;
+
+	std::vector<HEFace> newHEF;
+	for (HEFace f : HEF) {
+		if (f.edge != nullptr) {
+			newHEF.push_back(f);
+		}
+	}
+	HEF = newHEF;
 }

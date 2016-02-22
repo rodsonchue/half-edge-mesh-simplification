@@ -1,3 +1,11 @@
+/*
+Author: Rodson Chue Le Sheng
+Matric No. A0110787A
+
+Note: Code is based on a skeleton template provided as part of a module assignment
+
+Mesh reduction by edge collapse based on Melax's Edge Collapse algorithm
+*/
 #ifndef _MESH_H_
 #define _MESH_H_
 
@@ -33,16 +41,17 @@ typedef struct HEVertex {
 	//It also stores an outgoing half-edge
 	struct HEEdge* outEdge = nullptr;
 
-	bool operator==(HEVertex other) const
-	{
+	//Validity of vertex, vertex without an outgoing half-edge may or may not be valid
+	bool isValid = false;
+
+	bool operator==(HEVertex other) const {
 		return x == other.x
 			&& y == other.y
 			&& z == other.z;
 	}
 
 	//Used when using struct as key of map, is the default comparator
-	bool operator<(HEVertex other) const
-	{
+	bool operator<(HEVertex other) const {
 		return x < other.x
 			|| (x == other.x && y < other.y)
 			|| (x == other.x && y == other.y && z < other.z);
@@ -81,6 +90,7 @@ typedef struct HEEdge {
 typedef struct HEFace {
 	//A face stores one of its adjacent Half Edge
 	struct HEEdge* edge = nullptr;
+
 } HEFace;
 
 class Mesh{
@@ -91,6 +101,10 @@ private:
 	std::vector<HEVertex> HEV;
 	std::vector<HEEdge> HEE;
 	std::vector<HEFace> HEF;
+
+	//Internal functions
+	bool faceHasVertex(HEFace* f, HEVertex* v);
+	void replaceVertex(HEFace* f, HEVertex* u, HEVertex* v);
 public:
 	Mesh() {};
 	Mesh(const char*);
@@ -104,10 +118,14 @@ public:
 	void convertMesh();
 	//turn halfedge to indexed face set
 	void revertMesh();
+	//Collapses a vertex to another vertex (or nothing)
+	void collapseVertex(HEVertex* u, HEVertex* v);
 	//helper methods
-	std::vector<HEVertex> neighborVertices(HEVertex v);
-	std::vector<HEFace> neighborFaces(HEVertex v);
-	std::vector<HEVertex> adjacentVertices(HEFace f);
+	std::vector<HEVertex*> neighborVertices(HEVertex* v);
+	std::vector<HEFace*> neighborFaces(HEVertex* v);
+	std::vector<HEVertex*> adjacentVertices(HEFace* f);
+	std::vector<HEEdge*> adjacentEdges(HEFace* f);
+	void removeInvalids();
 	//return vertex count
 	int Vcnt();
 	//return face count
