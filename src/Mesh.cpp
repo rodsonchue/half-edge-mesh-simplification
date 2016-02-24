@@ -156,6 +156,11 @@ void Mesh::convertMesh()
 			edgeMap.erase(std::pair<uint, uint>(face.b, face.c));
 			edgeMap.erase(std::pair<uint, uint>(face.c, face.b));
 		}
+
+		//These Half Edges can now be considered valid as they constitute to form a face
+		halfEdge->isValid = true;
+		halfEdgeNext->isValid = true;
+		halfEdgePrev->isValid = true;
 		
 		//Face stores one of its half edge
 		heFace->edge = halfEdge;
@@ -288,24 +293,65 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 		return;
 	}
 
-	//Otherwise v is a valid vertex
-	std::vector<HEVertex*> neighbours = neighborVertices(u);
+	//Otherwise v is related to other half edges and faces
 
-	//Delete triangles (faces) that have both u,v as vertices
-	//TODO
+	//Update references upon vertex collapse
 	std::vector<HEFace*> adjFaces = neighborFaces(u);
-	for (HEFace* eaFace : adjFaces)
-	{
-		if (faceHasVertex(eaFace, v)) {
-			for (HEEdge* eaAdjEdge : adjacentEdges(eaFace)) {
-				//Disassociate with this face
-				eaAdjEdge->adjFace = nullptr;
-			}
-			eaFace->edge = nullptr;
+	std::vector<HEFace*> filteredFaces = filterFaceWithVertices(adjFaces, u, v);
+
+	if (filteredFaces.size == 2) {
+			//We begin by looking at the u->v half edge
+			HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
+			//w is the 3rd vertex on that face
+			HEEdge* wvEdge = uvEdge->nextEdge->twinEdge;
+			HEEdge* uwEdge = uvEdge->prevEdge->twinEdge;
+			//On the twin side,
+			HEEdge* vuEdge = uvEdge->twinEdge;
+			//x is the 3rd vertex on the other face also containing u,v
+			HEEdge* vxEdge = vuEdge->prevEdge->twinEdge;
+			HEEdge* xuEdge = vuEdge->nextEdge->twinEdge;
+
+			//Update twin edge pairings
+			makeTwins(uwEdge, wvEdge);
+			makeTwins(vxEdge, xuEdge);
+
+			//Invalidate Faces VWU, VUX
+			invalidateFace(filteredFaces[0]);
+			invalidateFace(filteredFaces[1]);
+	}
+	else {
+		//only 1 face, is corner case
+		//We begin by looking at the u->v half edge
+		HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
+
+		//Non null means is on the correct side
+		if (uvEdge) {
+			//w is the 3rd vertex on that face
+			HEEdge* wvEdge = uvEdge->nextEdge->twinEdge;
+			HEEdge* uwEdge = uvEdge->prevEdge->twinEdge;
+
+			//Update twin edge pairings
+			makeTwins(uwEdge, wvEdge);
+
+			//Invalidate Face
+			invalidateFace(filteredFaces[0]);
+		}
+		else { //need to look at the other half
+			HEEdge* vuEdge = getHalfEdge(filteredFaces[0], v, u);
+
+			//x is the 3rd vertex on the other face also containing u,v
+			HEEdge* vxEdge = vuEdge->prevEdge->twinEdge;
+			HEEdge* xuEdge = vuEdge->nextEdge->twinEdge;
+
+			//Update twin edge pairings
+			makeTwins(vxEdge, xuEdge);
+
+			//Invalidate Face
+			invalidateFace(filteredFaces[0]);
 		}
 	}
 
-	//Update remaining triangles to use v instead of u
+	//Update remaining valid faces to use v instead of u
 	for (HEFace* eaFace : adjFaces)
 	{
 		if (!eaFace->edge) {
@@ -318,18 +364,6 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 
 	//TODO
 	//Recompute edge collapse cost in neighbourhood
-}
-
-bool Mesh::faceHasVertex(HEFace* f, HEVertex* v) {
-
-	for (HEVertex* u : adjacentVertices(f)) {
-		//Pointers are pointing to the same vertex
-		if (u == v) {
-			return true;
-		}
-	}
-
-	return false;
 }
 
 void Mesh::replaceVertex(HEFace* f, HEVertex* u, HEVertex* v) {
@@ -380,4 +414,81 @@ void Mesh::removeInvalids() {
 		}
 	}
 	HEF = newHEF;
+
+	//*Half edges not neccessarily need to be removed
+}
+
+std::vector<HEFace*> Mesh::filterFaceWithVertices(std::vector<HEFace*> vector,
+	HEVertex* u, HEVertex* v) {
+	std::vector<HEFace*> filteredFaces;
+	for (HEFace* face : vector) {
+		bool hasU = false, hasV = false;
+		for (HEVertex* vertex : adjacentVertices(face)) {
+			if (vertex == u) {
+				hasU = true;
+			}
+			if (vertex == v) {
+				hasV = true;
+			}
+		}
+
+		if (hasU && hasV) {
+			filteredFaces.push_back(face);
+		}
+	}
+	return filteredFaces;
+}
+
+HEEdge* Mesh::getHalfEdge(HEFace* face, HEVertex* u, HEVertex* v) {
+	HEEdge* edge = face->edge;
+
+	if (edge->endVertex == v && edge->prevEdge->endVertex == u) {
+		return edge;
+	}
+	else if (edge->prevEdge->endVertex == v && edge->nextEdge->endVertex == u) {
+		return edge->prevEdge;
+	}
+	else if (edge->nextEdge->endVertex == v && edge->endVertex == u) {
+		return edge->nextEdge;
+	}
+
+	return nullptr;
+}
+
+void Mesh::invalidateEdgePairs(HEVertex* u, HEVertex* v) {
+	//Get both half edges
+	std::vector<HEFace*> faces = getFacesWithVertices(u, v);
+	//There are either two faces, one, or none (vertices are not directly connected)
+	HEEdge* edge;
+	if (faces.size == 2) {
+		edge = getHalfEdge(faces[0], u, v);
+		edge->twinEdge->isValid = false;
+		edge->isValid = false;
+	}
+	else if (faces.size == 1) {
+		if (!(edge = getHalfEdge(faces[0], u, v))) {
+			edge = getHalfEdge(faces[0], v, u);
+		}
+		edge->isValid = false;
+	}
+
+	//otherwise no edge to invalidate
+}
+
+std::vector<HEFace*> Mesh::getFacesWithVertices(HEVertex* u, HEVertex* v) {
+	return filterFaceWithVertices(neighborFaces(u), u, v);
+}
+
+void Mesh::makeTwins(HEEdge* edge, HEEdge* otherEdge) {
+	edge->twinEdge = otherEdge;
+	otherEdge->twinEdge = edge;
+}
+
+void Mesh::invalidateFace(HEFace* f) {
+	//When the face is invalid, so are its adjacent edges
+	for (HEEdge* edge : adjacentEdges(f)) {
+		edge->isValid = false;
+	}
+
+	f->edge = nullptr;
 }

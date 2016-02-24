@@ -61,6 +61,9 @@ typedef struct HEVertex {
 
 //Edge of Half-Edge Data Structure
 typedef struct HEEdge {
+	//States validity of half edge
+	bool isValid = false;
+
 	//An edge stores a vertex that it points to
 	struct HEVertex* endVertex = nullptr;
 
@@ -103,8 +106,13 @@ private:
 	std::vector<HEFace> HEF;
 
 	//Internal functions
-	bool faceHasVertex(HEFace* f, HEVertex* v);
 	void replaceVertex(HEFace* f, HEVertex* u, HEVertex* v);
+	std::vector<HEFace*> filterFaceWithVertices(std::vector<HEFace*> vector, HEVertex* u, HEVertex* v);
+	HEEdge* getHalfEdge(HEFace* face, HEVertex* u, HEVertex* v);
+	void invalidateEdgePairs(HEVertex* u, HEVertex* v);
+	std::vector<HEFace*> getFacesWithVertices(HEVertex* u, HEVertex* v);
+	void makeTwins(HEEdge* edge, HEEdge* otherEdge);
+	void invalidateFace(HEFace* f);
 public:
 	Mesh() {};
 	Mesh(const char*);
