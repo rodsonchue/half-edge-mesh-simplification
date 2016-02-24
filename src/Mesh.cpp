@@ -299,7 +299,7 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 	std::vector<HEFace*> adjFaces = neighborFaces(u);
 	std::vector<HEFace*> filteredFaces = filterFaceWithVertices(adjFaces, u, v);
 
-	if (filteredFaces.size == 2) {
+	if (filteredFaces.size() == 2) {
 			//We begin by looking at the u->v half edge
 			HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
 			//w is the 3rd vertex on that face
@@ -460,12 +460,12 @@ void Mesh::invalidateEdgePairs(HEVertex* u, HEVertex* v) {
 	std::vector<HEFace*> faces = getFacesWithVertices(u, v);
 	//There are either two faces, one, or none (vertices are not directly connected)
 	HEEdge* edge;
-	if (faces.size == 2) {
+	if (faces.size() == 2) {
 		edge = getHalfEdge(faces[0], u, v);
 		edge->twinEdge->isValid = false;
 		edge->isValid = false;
 	}
-	else if (faces.size == 1) {
+	else if (faces.size() == 1) {
 		if (!(edge = getHalfEdge(faces[0], u, v))) {
 			edge = getHalfEdge(faces[0], v, u);
 		}
