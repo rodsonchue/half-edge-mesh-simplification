@@ -49,8 +49,16 @@ void Mesh::simplifyMesh(const char* input, const char* output, int faceCnt){
 	loadMF(input);
 	convertMesh();
 	std::cout << "Original face count: " << F.size() << std::endl;
-	std::cout<<"HalfEdge face count: "<<HEF.size()<<std::endl;
-	// do mesh simplification here
+	std::cout<<"HalfEdge face count: "<< HEF.size()<< std::endl;
+	
+	std::cout << "hello0" << std::endl; //TODO
+	if (numValidFaces > faceCnt) {
+		std::cout << "performed collapse" << std::endl; //TODO
+		performCollapses(faceCnt);
+	}
+	std::cout << "hello1" << std::endl;//TODO
+	removeInvalids();
+	std::cout << "hello2" << std::endl;//TODO
 
 	revertMesh();
 	writeMF(output);
@@ -66,11 +74,11 @@ void Mesh::convertMesh()
 	for (Vertex vertex : V)
 	{
 		std::cout << "Working on Vertex (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << std::endl;
-		HEVertex heVertex;
-		heVertex.x = vertex.x;
-		heVertex.y = vertex.y;
-		heVertex.z = vertex.z;
-		heVertex.isValid = true;
+		HEVertex* heVertex = (HEVertex*)malloc(sizeof(HEVertex));
+		heVertex->x = vertex.x;
+		heVertex->y = vertex.y;
+		heVertex->z = vertex.z;
+		heVertex->isValid = true;
 
 		HEV.push_back(heVertex);
 	}
@@ -99,32 +107,35 @@ void Mesh::convertMesh()
 
 		//Shift index by -1 since mesh file starts from 1
 		uint va = face.a - 1, vb = face.b - 1, vc = face.c - 1;
-
+		
 		//Half edge (c->a)
 		HEEdge* halfEdge = (HEEdge*)malloc(sizeof(HEEdge));
-		halfEdge->endVertex = &HEV[va];
+		halfEdge->endVertex = HEV[va];
 		halfEdge->adjFace = heFace;
-		HEE.push_back(*halfEdge);
+		halfEdge->isValid = true;
+		HEE.push_back(halfEdge);
 		edgeMap[std::pair<uint,uint>(va, vc)] = halfEdge;
 
 		//Half edge (a->b)
 		HEEdge* halfEdgeNext = (HEEdge*)malloc(sizeof(HEEdge));
-		halfEdgeNext->endVertex = &HEV[vb];
+		halfEdgeNext->endVertex = HEV[vb];
 		halfEdgeNext->adjFace = heFace;
-		HEE.push_back(*halfEdgeNext);
+		halfEdgeNext->isValid = true;
+		HEE.push_back(halfEdgeNext);
 		edgeMap[std::pair<uint, uint>(vb, va)] = halfEdgeNext;
 
 		//Half edge (b->c)
 		HEEdge* halfEdgePrev = (HEEdge*)malloc(sizeof(HEEdge));
-		halfEdgePrev->endVertex = &HEV[vc];
+		halfEdgePrev->endVertex = HEV[vc];
 		halfEdgePrev->adjFace = heFace;
-		HEE.push_back(*halfEdgePrev);
+		halfEdgePrev->isValid = true;
+		HEE.push_back(halfEdgePrev);
 		edgeMap[std::pair<uint, uint>(vc, vb)] = halfEdgePrev;
 
 		//Update HEVertex outgoing edges
-		HEV[va].outEdge = halfEdgeNext;
-		HEV[vb].outEdge = halfEdgePrev;
-		HEV[vc].outEdge = halfEdge;
+		HEV[va]->outEdge = halfEdgeNext;
+		HEV[vb]->outEdge = halfEdgePrev;
+		HEV[vc]->outEdge = halfEdge;
 
 		//Link the 3 half edges
 		halfEdge->nextEdge = halfEdgeNext;
@@ -159,15 +170,18 @@ void Mesh::convertMesh()
 			edgeMap.erase(std::pair<uint, uint>(vb, vc));
 			edgeMap.erase(std::pair<uint, uint>(vc, vb));
 		}
-
-		//These Half Edges can now be considered valid as they constitute to form a face
-		halfEdge->isValid = true;
-		halfEdgeNext->isValid = true;
-		halfEdgePrev->isValid = true;
 		
 		//Face stores one of its half edge
 		heFace->edge = halfEdge;
-		HEF.push_back(*heFace);
+		HEF.push_back(heFace);
+	}
+
+	//We know there are this many faces
+	numValidFaces = HEF.size();
+
+	//Compute collapse cost for each edge
+	for (HEEdge* eaEdge : HEE) {
+		//TODO
 	}
 }
 
@@ -178,9 +192,9 @@ void Mesh::revertMesh()
 	V.clear();
 
 	//Lookup table to get index given a HEVertex key
-	std::map<HEVertex, uint> vertexIndex;
+	std::map<HEVertex*, uint> vertexIndex;
 
-	for (HEVertex eaVertex : HEV) {
+	for (HEVertex* eaVertex : HEV) {
 		/*
 		std::cout << "Working on HEVertex (" << eaVertex.x << ", "
 											<< eaVertex.y << ", "
@@ -188,23 +202,23 @@ void Mesh::revertMesh()
 											<< ")" << std::endl;*/
 
 		Vertex vertex;
-		vertex.x = eaVertex.x;
-		vertex.y = eaVertex.y;
-		vertex.z = eaVertex.z;
+		vertex.x = eaVertex->x;
+		vertex.y = eaVertex->y;
+		vertex.z = eaVertex->z;
 		vertexIndex[eaVertex] = (uint) V.size();
 		V.push_back(vertex);
 	}
 
-	for (HEFace eaFace : HEF) {
+	for (HEFace* eaFace : HEF) {
 		/*
 		std::cout << "Working on HEFace containing endVertex (" << eaFace.edge->endVertex->x << ", "
 																<< eaFace.edge->endVertex->y << ", "
 																<< eaFace.edge->endVertex->z << ", "
 																<< ")" << std::endl;*/
 		Face face;
-		face.a = vertexIndex[*eaFace.edge->endVertex] + 1;
-		face.b = vertexIndex[*eaFace.edge->nextEdge->endVertex] + 1;
-		face.c = vertexIndex[*eaFace.edge->prevEdge->endVertex] + 1;
+		face.a = vertexIndex[eaFace->edge->endVertex] + 1;
+		face.b = vertexIndex[eaFace->edge->nextEdge->endVertex] + 1;
+		face.c = vertexIndex[eaFace->edge->prevEdge->endVertex] + 1;
 		F.push_back(face);
 	}
 }
@@ -258,25 +272,15 @@ std::vector<HEFace*> Mesh::neighborFaces(HEVertex* v)
 }
 
 /*
-*	General approach: get all adjacent vertices by getting all half-edges adjacent to face
-*	See also: HEEdge equality using != operator (minimalistic)
+*	A face is bound by 3 vertices, forming a triangle
 */
 std::vector<HEVertex*> Mesh::adjacentVertices(HEFace* f)
 {
 	std::vector<HEVertex*> adjVertices;
 
-	HEEdge* firstOutEdge = f->edge;
-	HEEdge* currOutEdge = f->edge;
-
-	do {
-		//The end vertex of this half-edge is a neighbor vertex
-		adjVertices.push_back(currOutEdge->endVertex);
-
-		//Get the next outgoing half-edge
-		//The next edge is also adjacent to the same face
-		currOutEdge = currOutEdge->nextEdge;
-
-	} while (currOutEdge != firstOutEdge);
+	adjVertices.push_back(f->edge->endVertex);
+	adjVertices.push_back(f->edge->nextEdge->endVertex);
+	adjVertices.push_back(f->edge->prevEdge->endVertex);
 
 	return adjVertices;
 }
@@ -293,6 +297,7 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 	if (!v) {
 		//u is a vertex by itself, we just delete it
 		delete u;
+		std::cout << "u is a lone vertex" << std::endl; //TODO
 		return;
 	}
 
@@ -303,26 +308,28 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 	std::vector<HEFace*> filteredFaces = filterFaceWithVertices(adjFaces, u, v);
 
 	if (filteredFaces.size() == 2) {
-			//We begin by looking at the u->v half edge
-			HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
-			//w is the 3rd vertex on that face
-			HEEdge* wvEdge = uvEdge->nextEdge->twinEdge;
-			HEEdge* uwEdge = uvEdge->prevEdge->twinEdge;
-			//On the twin side,
-			HEEdge* vuEdge = uvEdge->twinEdge;
-			//x is the 3rd vertex on the other face also containing u,v
-			HEEdge* vxEdge = vuEdge->prevEdge->twinEdge;
-			HEEdge* xuEdge = vuEdge->nextEdge->twinEdge;
+		std::cout << "Two Filtered Faces" << std::endl; //TODO
+		//We begin by looking at the u->v half edge
+		HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
+		//w is the 3rd vertex on that face
+		HEEdge* wvEdge = uvEdge->nextEdge->twinEdge;
+		HEEdge* uwEdge = uvEdge->prevEdge->twinEdge;
+		//On the twin side,
+		HEEdge* vuEdge = uvEdge->twinEdge;
+		//x is the 3rd vertex on the other face also containing u,v
+		HEEdge* vxEdge = vuEdge->prevEdge->twinEdge;
+		HEEdge* xuEdge = vuEdge->nextEdge->twinEdge;
 
-			//Update twin edge pairings
-			makeTwins(uwEdge, wvEdge);
-			makeTwins(vxEdge, xuEdge);
+		//Update twin edge pairings
+		makeTwins(uwEdge, wvEdge);
+		makeTwins(vxEdge, xuEdge);
 
-			//Invalidate Faces VWU, VUX
-			invalidateFace(filteredFaces[0]);
-			invalidateFace(filteredFaces[1]);
+		//Invalidate Faces VWU, VUX
+		invalidateFace(filteredFaces[0]);
+		invalidateFace(filteredFaces[1]);
 	}
 	else {
+		std::cout << "One Filtered Face" << std::endl; //TODO
 		//only 1 face, is corner case
 		//We begin by looking at the u->v half edge
 		HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
@@ -353,14 +360,22 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 			invalidateFace(filteredFaces[0]);
 		}
 	}
+	std::cout << "Begin replacing u with v" << std::endl; //TODO
 
 	//Update remaining valid faces to use v instead of u
 	for (HEFace* eaFace : adjFaces)
 	{
-		if (!eaFace->edge) {
+		if (isValidFace(eaFace)) {
+			std::cout << "Working on adj Face with vertices "; //TODO
+			for (HEVertex* vert : adjacentVertices(eaFace)) {
+				std::cout << debugVertex(vert);
+			}
+			std::cout << std::endl; //TODO
+
 			replaceVertex(eaFace, u, v);
 		}
 	}
+	std::cout << "Invalidating vertex " << debugVertex(u) << std::endl; //TODO
 
 	//Invalidate vertex u
 	u->isValid = false;
@@ -369,12 +384,20 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 	//Recompute edge collapse cost in neighbourhood
 }
 
+bool Mesh::isValidFace(HEFace* f) {
+	return f->edge != nullptr;
+}
+
 void Mesh::replaceVertex(HEFace* f, HEVertex* u, HEVertex* v) {
 	bool notFound = true;
 	HEEdge* initialEdge = f->edge;
 	HEEdge* currEdge = f->edge;
 	do {
+		std::cout << "Current Vertex is (" << currEdge->endVertex->x << ", "
+			<< currEdge->endVertex->y << ", " 
+			<< currEdge->endVertex->z << ")" << std::endl; //TODO
 		if (currEdge->endVertex == u) {
+			std::cout << "Replace one" << std::endl; //TODO
 			currEdge->endVertex = v;
 			return;
 		}
@@ -402,17 +425,17 @@ std::vector<HEEdge*> Mesh::adjacentEdges(HEFace* f) {
 }
 
 void Mesh::removeInvalids() {
-	std::vector<HEVertex> newHEV;
-	for (HEVertex v : HEV) {
-		if (v.isValid) {
+	std::vector<HEVertex*> newHEV;
+	for (HEVertex* v : HEV) {
+		if (v->isValid) {
 			newHEV.push_back(v);
 		}
 	}
 	HEV = newHEV;
 
-	std::vector<HEFace> newHEF;
-	for (HEFace f : HEF) {
-		if (f.edge != nullptr) {
+	std::vector<HEFace*> newHEF;
+	for (HEFace* f : HEF) {
+		if (f->edge != nullptr) {
 			newHEF.push_back(f);
 		}
 	}
@@ -494,4 +517,40 @@ void Mesh::invalidateFace(HEFace* f) {
 	}
 
 	f->edge = nullptr;
+	numValidFaces--;
+}
+
+void Mesh::performCollapses(int faceCnt) {
+	//Perform the required number of edge collapses
+	//May over-perform as some collapses remove 1 face, some remove 2
+	while(numValidFaces > faceCnt){
+		//Version 1:
+		//Randomly select one
+		int select;
+		bool isValidEdge = false;
+		while (!isValidEdge){
+			select = rand() % HEE.size();
+			std::cout << "Selected value: " << select; //TODO
+			if (HEE[select]->isValid) {
+				isValidEdge = true;
+				std::cout << " is valid"  << std::endl; //TODO
+			}
+		}
+
+		HEVertex* vertexU = HEE[select]->prevEdge->endVertex;
+		std::cout << "Selected Edge's vertex u is: (" << vertexU->x  << ", "
+											<< vertexU->y << ", "
+											<< vertexU->z << ")" << std::endl;
+		HEVertex* vertexV = HEE[select]->endVertex;
+		std::cout << "Selected Edge's vertex v is: (" << vertexV->x << ", "
+			<< vertexV->y << ", "
+			<< vertexV->z << ")" << std::endl;
+
+		collapseVertex(vertexU, vertexV);
+		std::cout << "Current number of faces: " << numValidFaces << std::endl;
+	}
+}
+
+std::string Mesh::debugVertex(HEVertex* v) {
+	return "(" + std::to_string(v->x) + ", " + std::to_string(v->y) + ", " + std::to_string(v->z) + ")";
 }

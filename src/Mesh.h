@@ -20,6 +20,7 @@ Differences: Using half-edge data structure instead of the suggested "triangle" 
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <stdlib.h> //for rng
 
 typedef unsigned int uint;
 
@@ -99,9 +100,12 @@ private:
 	std::vector<Vertex> V;
 	std::vector<Face> F;
 
-	std::vector<HEVertex> HEV;
-	std::vector<HEEdge> HEE;
-	std::vector<HEFace> HEF;
+	std::vector<HEVertex*> HEV;
+	std::vector<HEEdge*> HEE;
+	std::vector<HEFace*> HEF;
+
+	//Quick way to check number of valid faces
+	int numValidFaces = 0;
 
 	//Internal functions
 	void replaceVertex(HEFace* f, HEVertex* u, HEVertex* v);
@@ -111,6 +115,8 @@ private:
 	std::vector<HEFace*> getFacesWithVertices(HEVertex* u, HEVertex* v);
 	void makeTwins(HEEdge* edge, HEEdge* otherEdge);
 	void invalidateFace(HEFace* f);
+	bool isValidFace(HEFace* f);
+	std::string debugVertex(HEVertex* v); //Remove after
 public:
 	Mesh() {};
 	Mesh(const char*);
@@ -120,6 +126,8 @@ public:
 	void writeMF(const char*);
 	//simplify a mesh
 	void simplifyMesh(const char* input, const char* output, int faceCnt);
+	//Performs edge collapses depending on required face count
+	void performCollapses(int faceCnt);
 	//turn indexed face set to halfedge
 	void convertMesh();
 	//turn halfedge to indexed face set
