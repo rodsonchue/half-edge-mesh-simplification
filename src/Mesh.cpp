@@ -97,30 +97,34 @@ void Mesh::convertMesh()
 
 		//Each half edge takes their respective vertex index
 
+		//Shift index by -1 since mesh file starts from 1
+		uint va = face.a - 1, vb = face.b - 1, vc = face.c - 1;
+
 		//Half edge (c->a)
 		HEEdge* halfEdge = (HEEdge*)malloc(sizeof(HEEdge));
-		halfEdge->endVertex = &HEV[face.a];
+		halfEdge->endVertex = &HEV[va];
 		halfEdge->adjFace = heFace;
 		HEE.push_back(*halfEdge);
-		edgeMap[std::pair<uint,uint>(face.a, face.c)] = halfEdge;
+		edgeMap[std::pair<uint,uint>(va, vc)] = halfEdge;
 
 		//Half edge (a->b)
 		HEEdge* halfEdgeNext = (HEEdge*)malloc(sizeof(HEEdge));
-		halfEdgeNext->endVertex = &HEV[face.b];
+		halfEdgeNext->endVertex = &HEV[vb];
 		halfEdgeNext->adjFace = heFace;
 		HEE.push_back(*halfEdgeNext);
-		edgeMap[std::pair<uint, uint>(face.b, face.a)] = halfEdgeNext;
+		edgeMap[std::pair<uint, uint>(vb, va)] = halfEdgeNext;
 
 		//Half edge (b->c)
 		HEEdge* halfEdgePrev = (HEEdge*)malloc(sizeof(HEEdge));
-		halfEdgePrev->endVertex = &HEV[face.c];
+		halfEdgePrev->endVertex = &HEV[vc];
 		halfEdgePrev->adjFace = heFace;
 		HEE.push_back(*halfEdgePrev);
+		edgeMap[std::pair<uint, uint>(vc, vb)] = halfEdgePrev;
 
 		//Update HEVertex outgoing edges
-		HEV[face.a].outEdge = halfEdgeNext;
-		HEV[face.b].outEdge = halfEdgePrev;
-		HEV[face.c].outEdge = halfEdge;
+		HEV[va].outEdge = halfEdgeNext;
+		HEV[vb].outEdge = halfEdgePrev;
+		HEV[vc].outEdge = halfEdge;
 
 		//Link the 3 half edges
 		halfEdge->nextEdge = halfEdgeNext;
@@ -134,27 +138,26 @@ void Mesh::convertMesh()
 
 		//Link twin edges, remove from map once linked (no longer needed to be accessed)
 		//Increases access time to the remaining K,V pairs
-		edgeMapIt = edgeMap.find(std::pair<uint, uint>(face.c, face.a));
+		edgeMapIt = edgeMap.find(std::pair<uint, uint>(vc, va));
 		if (edgeMapIt != edgeMap.end()) {
-			edgeMap[std::pair<uint, uint>(face.a, face.c)]->twinEdge = edgeMapIt->second;
-			edgeMap[std::pair<uint, uint>(face.c, face.a)]->twinEdge = halfEdge;
-			edgeMap.erase(std::pair<uint, uint>(face.a, face.c));
-			edgeMap.erase(std::pair<uint, uint>(face.c, face.a));
+			edgeMap[std::pair<uint, uint>(va, vc)]->twinEdge = edgeMapIt->second;
+			edgeMap[std::pair<uint, uint>(vc, va)]->twinEdge = halfEdge;
+			edgeMap.erase(std::pair<uint, uint>(va, vc));
+			edgeMap.erase(std::pair<uint, uint>(vc, va));
 		}
-		edgeMapIt = edgeMap.find(std::pair<uint, uint>(face.a, face.b));
+		edgeMapIt = edgeMap.find(std::pair<uint, uint>(va, vb));
 		if (edgeMapIt != edgeMap.end()) {
-			edgeMap[std::pair<uint, uint>(face.b, face.a)]->twinEdge = edgeMapIt->second;
-			edgeMap[std::pair<uint, uint>(face.a, face.b)]->twinEdge = halfEdgeNext;
-			edgeMap.erase(std::pair<uint, uint>(face.b, face.a));
-			edgeMap.erase(std::pair<uint, uint>(face.a, face.b));
+			edgeMap[std::pair<uint, uint>(vb, va)]->twinEdge = edgeMapIt->second;
+			edgeMap[std::pair<uint, uint>(va, vb)]->twinEdge = halfEdgeNext;
+			edgeMap.erase(std::pair<uint, uint>(vb, va));
+			edgeMap.erase(std::pair<uint, uint>(va, vb));
 		}
-		edgeMap[std::pair<uint, uint>(face.c, face.b)] = halfEdgePrev;
-		edgeMapIt = edgeMap.find(std::pair<uint, uint>(face.b, face.c));
+		edgeMapIt = edgeMap.find(std::pair<uint, uint>(vb, vc));
 		if (edgeMapIt != edgeMap.end()) {
-			edgeMap[std::pair<uint, uint>(face.b, face.c)]->twinEdge = edgeMapIt->second;
-			edgeMap[std::pair<uint, uint>(face.c, face.b)]->twinEdge = halfEdgePrev;
-			edgeMap.erase(std::pair<uint, uint>(face.b, face.c));
-			edgeMap.erase(std::pair<uint, uint>(face.c, face.b));
+			edgeMap[std::pair<uint, uint>(vb, vc)]->twinEdge = edgeMapIt->second;
+			edgeMap[std::pair<uint, uint>(vc, vb)]->twinEdge = halfEdgePrev;
+			edgeMap.erase(std::pair<uint, uint>(vb, vc));
+			edgeMap.erase(std::pair<uint, uint>(vc, vb));
 		}
 
 		//These Half Edges can now be considered valid as they constitute to form a face
@@ -199,9 +202,9 @@ void Mesh::revertMesh()
 																<< eaFace.edge->endVertex->z << ", "
 																<< ")" << std::endl;*/
 		Face face;
-		face.a = vertexIndex[*eaFace.edge->endVertex];
-		face.b = vertexIndex[*eaFace.edge->nextEdge->endVertex];
-		face.c = vertexIndex[*eaFace.edge->prevEdge->endVertex];
+		face.a = vertexIndex[*eaFace.edge->endVertex] + 1;
+		face.b = vertexIndex[*eaFace.edge->nextEdge->endVertex] + 1;
+		face.c = vertexIndex[*eaFace.edge->prevEdge->endVertex] + 1;
 		F.push_back(face);
 	}
 }

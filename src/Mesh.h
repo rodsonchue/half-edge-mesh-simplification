@@ -83,16 +83,8 @@ typedef struct HEEdge {
 	//Its twin half edge (points in opposite direction)
 	struct HEEdge* twinEdge = nullptr;
 
-	bool operator!=(HEEdge other) const
-	{
-		return !(endVertex == other.endVertex);
-	}
-
-	bool operator==(HEEdge other) const
-	{
-		return endVertex == other.endVertex;
-	}
-
+	//The cost of collapsing edge
+	float cost = FLT_MAX;
 } HEEdge;
 
 //Face of Half-Edge Data Structure
