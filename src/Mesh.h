@@ -71,6 +71,13 @@ typedef struct HEEdge {
 	//States validity of half edge
 	bool isValid = false;
 
+	//Index to identify each unique half edge
+	int index;
+
+	bool operator==(HEEdge other) const {
+		return index == other.index;
+	}
+
 	//An edge stores a vertex that it points to
 	struct HEVertex* endVertex = nullptr;
 
@@ -109,14 +116,16 @@ private:
 
 	//Internal functions
 	void replaceVertex(HEFace* f, HEVertex* u, HEVertex* v);
-	std::vector<HEFace*> filterFaceWithVertices(std::vector<HEFace*> vector, HEVertex* u, HEVertex* v);
+	std::vector<HEFace*> filterFaceWithVertex(std::vector<HEFace*> vector, HEVertex* v);
 	HEEdge* getHalfEdge(HEFace* face, HEVertex* u, HEVertex* v);
 	void invalidateEdgePairs(HEVertex* u, HEVertex* v);
 	std::vector<HEFace*> getFacesWithVertices(HEVertex* u, HEVertex* v);
 	void makeTwins(HEEdge* edge, HEEdge* otherEdge);
 	void invalidateFace(HEFace* f);
 	bool isValidFace(HEFace* f);
-	std::string debugVertex(HEVertex* v); //Remove after
+	bool faceHasVertex(HEFace* f, HEVertex* v);
+	void debugVertex(HEVertex* v); //Remove after TODO
+	std::vector<HEVertex*> invalidV; //TODO
 public:
 	Mesh() {};
 	Mesh(const char*);
