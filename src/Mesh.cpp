@@ -261,7 +261,7 @@ std::vector<HEVertex*> Mesh::neighborVertices(HEVertex* v)
 std::vector<HEFace*> Mesh::neighborFaces(HEVertex* v)
 {
 	std::vector<HEFace*> neighbors;
-	if (!v->isValid) {
+	if (v==nullptr || !v->isValid) {
 		std::cout << "neighborFaces: invalid vertex" << std::endl; //TODO
 		return neighbors;
 	}
@@ -348,6 +348,7 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 	std::vector<HEFace*> filteredFaces = filterFaceWithVertex(adjFaces, v);
 
 	std::cout << "Number of Faces: " << filteredFaces.size() << std::endl; //TODO
+
 	if (filteredFaces.size() == 2) {
 		std::cout << "Two Filtered Faces" << std::endl; //TODO
 		//We begin by looking at the u->v half edge
@@ -367,6 +368,13 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 		HEEdge* vxEdge = vuEdge->prevEdge->twinEdge;
 		HEEdge* xuEdge = vuEdge->nextEdge->twinEdge;
 		//std::cout << "test3" << std::endl; //TODO
+
+		//Reassign Vertex v a valid outEdge
+		//TODO
+		//adjacentEdges
+		//if(vxEdge != nullptr)
+		//v->outEdge = 
+			//TODO
 
 		//Update twin edge pairings
 		makeTwins(uwEdge, wvEdge);
@@ -428,7 +436,6 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 	//Invalidate vertex u
 	invalidV.push_back(u);
 	u->isValid = false;
-	u->outEdge = nullptr;
 
 	//TODO
 	//Recompute edge collapse cost in neighbourhood
@@ -545,8 +552,13 @@ std::vector<HEFace*> Mesh::getFacesWithVertices(HEVertex* u, HEVertex* v) {
 }
 
 void Mesh::makeTwins(HEEdge* edge, HEEdge* otherEdge) {
-	edge->twinEdge = otherEdge;
-	otherEdge->twinEdge = edge;
+	if (edge != nullptr) {
+		edge->twinEdge = otherEdge;
+	}
+	
+	if (otherEdge != nullptr) {
+		otherEdge->twinEdge = edge;
+	}
 }
 
 void Mesh::invalidateFace(HEFace* f) {
