@@ -370,11 +370,9 @@ void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
 		//std::cout << "test3" << std::endl; //TODO
 
 		//Reassign Vertex v a valid outEdge
-		//TODO
-		//adjacentEdges
-		//if(vxEdge != nullptr)
-		//v->outEdge = 
-			//TODO
+		if (v->outEdge == vuEdge || v->outEdge == uvEdge->nextEdge) {
+			v->outEdge = wvEdge->nextEdge;
+		}
 
 		//Update twin edge pairings
 		makeTwins(uwEdge, wvEdge);
