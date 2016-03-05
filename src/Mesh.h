@@ -125,7 +125,9 @@ private:
 	bool isValidFace(HEFace* f);
 	bool faceHasVertex(HEFace* f, HEVertex* v);
 	void debugVertex(HEVertex* v); //Remove after TODO
-	std::vector<HEVertex*> invalidV; //TODO
+	int getNumVerticesAdjacentTo(HEVertex* u, HEVertex* v);
+	std::vector<HEEdge*> getIncomingEdges(HEVertex* v);
+	bool canCollapse(HEEdge* __edge);
 public:
 	Mesh() {};
 	Mesh(const char*);
@@ -141,8 +143,8 @@ public:
 	void convertMesh();
 	//turn halfedge to indexed face set
 	void revertMesh();
-	//Collapses a vertex to another vertex (or nothing)
-	void collapseVertex(HEVertex* u, HEVertex* v);
+	//Collapses an edge (if it is valid)
+	void collapseEdge(HEEdge* e);
 	//helper methods
 	std::vector<HEVertex*> neighborVertices(HEVertex* v);
 	std::vector<HEFace*> neighborFaces(HEVertex* v);

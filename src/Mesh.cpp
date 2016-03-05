@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Mesh.h"
 #include <map>
+#include <assert.h>
 
 Mesh::Mesh(const char* filename){	
 	loadMF(filename);
@@ -236,15 +237,18 @@ void Mesh::revertMesh()
 */
 std::vector<HEVertex*> Mesh::neighborVertices(HEVertex* v)
 {
+	std::cout << "in neighbor vertices" << std::endl; //TODO
 	std::vector<HEVertex*> neighbors;
-	
 	HEEdge* firstOutEdge = v->outEdge;
 	HEEdge* currOutEdge = v->outEdge;
 
+	if (!currOutEdge->isValid) {
+		std::cout << "invalid edge" << std::endl; //TODO
+		return neighbors;
+	}
 	do {
 		//The end vertex of this half-edge is a neighbor vertex
 		neighbors.push_back(currOutEdge->endVertex);
-
 		//Get the next outgoing half-edge
 		//The next edge of its twin is also an outgoing half-edge from v
 		currOutEdge = currOutEdge->twinEdge->nextEdge;
@@ -271,7 +275,7 @@ std::vector<HEFace*> Mesh::neighborFaces(HEVertex* v)
 	bool forceExit = false;
 
 	do {
-		std::cout << "neighborFaces: in first half" << std::endl; //TODO
+		//std::cout << "neighborFaces: in first half" << std::endl; //TODO
 		//The face of this half-edge is a neighbor face
 		neighbors.push_back(currOutEdge->adjFace);
 
@@ -331,112 +335,62 @@ int Mesh::Fcnt(){
 	return HEF.size();
 }
 
-void Mesh::collapseVertex(HEVertex* u, HEVertex* v) {
-	if (!v) {
-		//u is a vertex by itself, we just delete it
-		delete u;
-		std::cout << "u is a lone vertex" << std::endl; //TODO
+void Mesh::collapseEdge(HEEdge* _edge) {
+	if (!canCollapse(_edge)) {
 		return;
+	};
+
+	std::cout << "Can collapse" << std::endl; //TODO
+
+	//Edges on one side of the face
+	HEEdge* e = _edge;
+	HEEdge* en = _edge->nextEdge;
+	HEEdge* ep = _edge->prevEdge;
+
+	//Edges on the opposite face
+	HEEdge* o = _edge->twinEdge;
+	HEEdge* on = _edge->twinEdge->nextEdge;
+	HEEdge* op = _edge->twinEdge->prevEdge;
+
+	//The faces
+	HEFace* fe = e->adjFace;
+	HEFace* fo = o->adjFace;
+
+	//The vertices
+	HEVertex* ve = e->endVertex;
+	HEVertex* vo = o->endVertex;
+
+	//All edges that once ended at vo will now end at ve
+	//(vo is being collapsed to ve)
+	std::cout << "before incoming edges" << std::endl; //TODO
+	for (HEEdge* eaIncomingEdge : getIncomingEdges(vo)) {
+		eaIncomingEdge->endVertex = ve;
+	}std::cout << "after incoming edges" << std::endl; //TODO
+	
+	//Reassign ve with any valid outEdge if needed
+	if (ve->outEdge == o || ve->outEdge == en) {
+		ve->outEdge = op->twinEdge;
+		std::cout << "Reassigning ve outedge" << std::endl; //TODO
 	}
 
-	//Otherwise v is related to other half edges and faces
-	std::cout << "helloworld" << std::endl; //TODO
-	//Update references upon vertex collapse
-	std::vector<HEFace*> adjFaces = neighborFaces(u);
-	std::cout << "utest1" << std::endl; //TODO
-	std::cout << "Number of Faces(prefilter): " << adjFaces.size() << std::endl; //TODO
-	std::vector<HEFace*> filteredFaces = filterFaceWithVertex(adjFaces, v);
+	//Since we are dealing with triangles, 
+	//The opposite halfedges of the now-invalid half edges now need to be "twinned"
+	makeTwins(en->twinEdge, ep->twinEdge);
+	makeTwins(on->twinEdge, op->twinEdge);
+	std::cout << "after twins" << std::endl; //TODO
 
-	std::cout << "Number of Faces: " << filteredFaces.size() << std::endl; //TODO
+	//Faces fe,fo also collapse
+	invalidateFace(fe);
+	invalidateFace(fo);
+	std::cout << "after invalidate face" << std::endl; //TODO
 
-	if (filteredFaces.size() == 2) {
-		std::cout << "Two Filtered Faces" << std::endl; //TODO
-		//We begin by looking at the u->v half edge
-		HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
-		//std::cout << "test1" << std::endl; //TODO
-		if (uvEdge == nullptr) {
-			uvEdge = getHalfEdge(filteredFaces[1], u, v);
-		}
-		//w is the 3rd vertex on that face
-		HEEdge* wvEdge = uvEdge->nextEdge->twinEdge;
-		HEEdge* uwEdge = uvEdge->prevEdge->twinEdge;
-		//std::cout << "test2" << std::endl; //TODO
+	//Invalidate the collapsed vertex
+	vo->isValid = false;
 
-		//On the twin side,
-		HEEdge* vuEdge = uvEdge->twinEdge;
-		//x is the 3rd vertex on the other face also containing u,v
-		HEEdge* vxEdge = vuEdge->prevEdge->twinEdge;
-		HEEdge* xuEdge = vuEdge->nextEdge->twinEdge;
-		//std::cout << "test3" << std::endl; //TODO
+	std::cout << "ve's out edge is " << ve->outEdge->isValid << std::endl; //TODO
 
-		//Reassign Vertex v a valid outEdge
-		if (v->outEdge == vuEdge || v->outEdge == uvEdge->nextEdge) {
-			v->outEdge = wvEdge->nextEdge;
-		}
-
-		//Update twin edge pairings
-		makeTwins(uwEdge, wvEdge);
-		makeTwins(vxEdge, xuEdge);
-
-		//Invalidate Faces VWU, VUX
-		invalidateFace(filteredFaces[0]);
-		invalidateFace(filteredFaces[1]);
-	}
-	else {
-		std::cout << "One Filtered Face" << std::endl; //TODO
-		//only 1 face, is corner case
-		//We begin by looking at the u->v half edge
-		HEEdge* uvEdge = getHalfEdge(filteredFaces[0], u, v);
-
-		//Non null means is on the correct side
-		if (uvEdge) {
-			//w is the 3rd vertex on that face
-			HEEdge* wvEdge = uvEdge->nextEdge->twinEdge;
-			HEEdge* uwEdge = uvEdge->prevEdge->twinEdge;
-
-			//Update twin edge pairings
-			makeTwins(uwEdge, wvEdge);
-
-			//Invalidate Face
-			invalidateFace(filteredFaces[0]);
-		}
-		else { //need to look at the other half
-			HEEdge* vuEdge = getHalfEdge(filteredFaces[0], v, u);
-
-			//x is the 3rd vertex on the other face also containing u,v
-			HEEdge* vxEdge = vuEdge->prevEdge->twinEdge;
-			HEEdge* xuEdge = vuEdge->nextEdge->twinEdge;
-
-			//Update twin edge pairings
-			makeTwins(vxEdge, xuEdge);
-
-			//Invalidate Face
-			invalidateFace(filteredFaces[0]);
-		}
-	}
-	//std::cout << "Begin replacing u with v" << std::endl; //TODO
-
-	//Update remaining valid faces to use v instead of u
-	for (HEFace* eaFace : adjFaces)
-	{
-		if (isValidFace(eaFace)) {/*
-			std::cout << "Working on adj Face with vertices "; //TODO
-			for (HEVertex* vert : adjacentVertices(eaFace)) {
-				std::cout << debugVertex(vert);
-			}
-			std::cout << std::endl; //TODO
-			*/
-			replaceVertex(eaFace, u, v);
-		}
-	}
-	std::cout << "Invalidating vertex "; debugVertex(u); std::cout << std::endl; //TODO
-
-	//Invalidate vertex u
-	invalidV.push_back(u);
-	u->isValid = false;
-
-	//TODO
-	//Recompute edge collapse cost in neighbourhood
+	//TODO	
+	//Recompute edge collapse cost in neighbourhood of ve
 }
 
 bool Mesh::isValidFace(HEFace* f) {
@@ -562,17 +516,16 @@ void Mesh::makeTwins(HEEdge* edge, HEEdge* otherEdge) {
 void Mesh::invalidateFace(HEFace* f) {
 	//When the face is invalid, so are its adjacent edges
 	for (HEEdge* edge : adjacentEdges(f)) {
-		std::cout << "Invalidating edge pointing to "; debugVertex(edge->endVertex); std::cout << std::endl; //TODO
+		//std::cout << "Invalidating edge pointing to "; debugVertex(edge->endVertex); std::cout << std::endl; //TODO
 		edge->isValid = false;
 	}
-	std::cout << "Invalidating face " << std::endl; //TODO
+	//std::cout << "Invalidating face " << std::endl; //TODO
 	f->edge = nullptr;
 	numValidFaces--;
 }
 
 void Mesh::performCollapses(int faceCnt) {
 	//Perform the required number of edge collapses
-	//May over-perform as some collapses remove 1 face, some remove 2
 	while(numValidFaces > faceCnt){
 		//Version 1:
 		//Randomly select one
@@ -580,23 +533,14 @@ void Mesh::performCollapses(int faceCnt) {
 		bool isValidEdge = false;
 		while (!isValidEdge){
 			select = rand() % HEE.size();
-			//std::cout << "Selected value: " << select; //TODO
+			std::cout << "Selected value: " << select; //TODO
 			if (HEE[select]->isValid) {
 				isValidEdge = true;
-				//std::cout << " is valid"  << std::endl; //TODO
+				std::cout << " is valid"  << std::endl; //TODO
 			}
 		}
 
-		HEVertex* vertexU = HEE[select]->prevEdge->endVertex;
-		std::cout << "Selected Edge's vertex u is: (" << vertexU->x  << ", "
-											<< vertexU->y << ", "
-											<< vertexU->z << ")" << std::endl;
-		HEVertex* vertexV = HEE[select]->endVertex;
-		std::cout << "Selected Edge's vertex v is: (" << vertexV->x << ", "
-			<< vertexV->y << ", "
-			<< vertexV->z << ")" << std::endl;
-
-		collapseVertex(vertexU, vertexV);
+		collapseEdge(HEE[select]);
 		std::cout << "Current number of faces: " << numValidFaces << std::endl;
 	}
 }
@@ -608,6 +552,65 @@ bool Mesh::faceHasVertex(HEFace* f, HEVertex* v) {
 		}
 	}
 	return false;
+}
+
+int Mesh::getNumVerticesAdjacentTo(HEVertex* u, HEVertex* v) {
+	int counter = 0;
+	std::cout << "u: " << u->isValid; debugVertex(u); std::cout << std::endl; //TODO
+	std::cout << "v: " << v->isValid; debugVertex(v); std::cout << std::endl; //TODO
+	for (HEVertex* eaNeighborOfU : neighborVertices(u)) {
+		for (HEVertex* eaNeighborOfV : neighborVertices(v)) {
+			if (eaNeighborOfU == eaNeighborOfV) counter++;
+		}
+	}
+	return counter;
+}
+
+std::vector<HEEdge*> Mesh::getIncomingEdges(HEVertex* v) {
+	std::vector<HEEdge*> incomingEdges;
+	HEEdge* firstEdge = v->outEdge->twinEdge;
+	HEEdge* currentEdge = v->outEdge->twinEdge;
+
+	do {
+		incomingEdges.push_back(currentEdge);
+		currentEdge = currentEdge->nextEdge->twinEdge;
+	} while (firstEdge != currentEdge);
+
+	for (auto eaEdge : incomingEdges) {
+		assert(eaEdge->endVertex == v);
+	}
+	
+	return incomingEdges;
+}
+
+bool Mesh::canCollapse(HEEdge* __edge) {
+	std::cout << "test can collapse" << std::endl; //TODO
+	//An invalid edge can't be collapsed
+	if (!__edge->isValid) {
+		return false;
+	}
+	std::cout << "not invalid edge" << std::endl; //TODO
+	//See: http://stackoverflow.com/questions/27049163/mesh-simplification-edge-collapse-conditions
+
+	//Connectivity checks
+	HEVertex* ve = __edge->endVertex;
+	HEVertex* vo = __edge->twinEdge->endVertex;
+
+	std::cout << "ve: " << ve->isValid; debugVertex(ve); std::cout << std::endl; //TODO
+	std::cout << "vo: " << vo->isValid; debugVertex(vo); std::cout << std::endl; //TODO
+
+	//The vertices must have exactly two common neighbor vertices
+	//Otherwise the collapse would cause non-manifold
+	//Therefore the edge
+	std::cout << "can get ve,vo" << std::endl; //TODO
+	if (getNumVerticesAdjacentTo(ve, vo) != 2) {
+		return false;
+	}
+	std::cout << "sharing 2 adj vertices" << std::endl; //TODO
+	//Geometry Checks
+	//TODO
+
+	return true;
 }
 
 void Mesh::debugVertex(HEVertex* v) {
