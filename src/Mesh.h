@@ -32,6 +32,9 @@ typedef struct Vertex {
 	float z;
 } Vertex;
 
+//A vertex can also be used as 3 dimensional vector
+typedef Vertex Vector3;
+
 typedef struct Face {
 	//three vertex ids
 	uint a,b,c;
@@ -71,11 +74,30 @@ typedef struct HEEdge {
 	//States validity of half edge
 	bool isValid = false;
 
+	//Whether edge collapse is dangerous (non-manifold causing)
+	bool isDanger = false;
+
 	//Index to identify each unique half edge
 	int index;
 
 	bool operator==(HEEdge other) const {
 		return index == other.index;
+	}
+
+	bool operator<(HEEdge other) const {
+		//If both are invalid or valid
+		if (isValid == other.isValid) {
+			if (isDanger == other.isDanger) {
+				return cost < other.cost;
+			}
+			else {
+				//this is not dangerous but the other is
+				return !isDanger;
+			}
+		} else {
+			//this is valid and the other is not.
+			return isValid;
+		}
 	}
 
 	//An edge stores a vertex that it points to
@@ -127,6 +149,12 @@ private:
 	void debugVertex(HEVertex* v); //Remove after TODO
 	int getNumVerticesAdjacentTo(HEVertex* u, HEVertex* v);
 	std::vector<HEEdge*> getIncomingEdges(HEVertex* v);
+	std::vector<HEEdge*> getAllNeighbourhoodEdges(HEVertex* v);
+	void computeCollapseCost(HEEdge* e);
+	int selectLeastCostEdge();
+	float magnitude(HEVertex* u, HEVertex* v);
+	float computeDotProduct(HEFace* faceA, HEFace* faceB);
+	Vector3 computeNormalizedNormal(HEFace* face);
 	bool canCollapse(HEEdge* __edge);
 public:
 	Mesh() {};
@@ -147,9 +175,11 @@ public:
 	void collapseEdge(HEEdge* e);
 	//helper methods
 	std::vector<HEVertex*> neighborVertices(HEVertex* v);
+	std::vector<HEEdge*> outgoingEdges(HEVertex* v);
 	std::vector<HEFace*> neighborFaces(HEVertex* v);
 	std::vector<HEVertex*> adjacentVertices(HEFace* f);
 	std::vector<HEEdge*> adjacentEdges(HEFace* f);
+	std::pair<HEVertex*, HEVertex*> getVertices(HEEdge* e);
 	void removeInvalids();
 	//return vertex count
 	int Vcnt();
