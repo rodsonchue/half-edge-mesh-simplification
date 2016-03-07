@@ -50,18 +50,17 @@ void Mesh::writeMF(const char* filename){
 void Mesh::simplifyMesh(const char* input, const char* output, int faceCnt){
 	// you may assume inputs are always valid
 	loadMF(input);
-	convertMesh();
 	std::cout << "Original face count: " << F.size() << std::endl;
+	convertMesh();
 	std::cout<<"HalfEdge face count: "<< HEF.size()<< std::endl;
-	
-	std::cout << "hello0" << std::endl; //TODO
+
 	if (numValidFaces > faceCnt) {
-		std::cout << "performed collapse" << std::endl; //TODO
+		std::cout << "Performing a series of collapses" << std::endl; //TODO
 		performCollapses(faceCnt);
 	}
-	std::cout << "after collapses" << std::endl;//TODO
+	std::cout << "Collapse complete" << std::endl;//TODO
 	removeInvalids();
-	std::cout << "after removing invalids" << std::endl;//TODO
+	std::cout << "Removed invalids" << std::endl;//TODO
 
 	revertMesh();
 	writeMF(output);
@@ -191,12 +190,7 @@ void Mesh::convertMesh()
 
 	//Check whether mesh is "closed"
 	if (!edgeMap.empty()) {
-		std::cout << "there are edges with no twins!" << std::endl;
-	}
-
-	//Compute collapse cost for each edge
-	for (HEEdge* eaEdge : HEE) {
-		//TODO
+		std::cout << "Warning: there are edges with no twins!" << std::endl;
 	}
 }
 
@@ -246,6 +240,12 @@ std::vector<HEVertex*> Mesh::neighborVertices(HEVertex* v)
 {
 	std::cout << "in neighbor vertices" << std::endl; //TODO
 	std::vector<HEVertex*> neighbors;
+
+	if (!v) {
+		std::cout << "null vertex!" << std::endl; //TODO
+		return neighbors;
+	}
+
 	HEEdge* firstOutEdge = v->outEdge;
 	HEEdge* currOutEdge = v->outEdge;
 
@@ -392,16 +392,19 @@ void Mesh::collapseEdge(HEEdge* _edge) {
 
 	std::cout << "ve's out edge is " << ve->outEdge->isValid << std::endl; //TODO
 
-	//Recompute edge collapse cost in neighbourhood of ve
+	//Recompute edge collapse cost in neighbourhood of vectices neighbour to ve
+	//Also check if the edge is considered safe to collapse
 	for (HEVertex* v : neighborVertices(ve)) {
-		for (HEEdge* eaEdge : outgoingEdges(v)) {
+		for (HEEdge* eaEdge : getAllNeighbourhoodEdges(v)) {
 			computeCollapseCost(eaEdge);
+			canCollapse(eaEdge);
 		}
-	}
+	}/*
 	//And for itself as well
 	for (HEEdge* eaEdge : outgoingEdges(ve)) {
 		computeCollapseCost(eaEdge);
-	}
+		canCollapse(eaEdge);
+	}*/
 	
 }
 
@@ -669,33 +672,38 @@ bool Mesh::canCollapse(HEEdge* __edge) {
 
 	//Geometry Checks
 	//TBC, might not be needed for 3D meshes
+	if (!checkGeometry(__edge)) {
+		__edge->isDanger = true;
+		return false;
+	}
 
+	//Edge is not dangerous to collapse
+	__edge->isDanger = false;
 	return true;
 }
 
 std::vector<HEEdge*> Mesh::getAllNeighbourhoodEdges(HEVertex* v) {
 	assert(v->isValid);
-	
+	std::cout << "call getAllNeighbourhoodEdges" << std::endl; //TODO
 	std::vector<HEEdge*> allEdges;
 	HEEdge* firstOutgoingEdge = v->outEdge;
 	HEEdge* currentOutgoingEdge = v->outEdge;
 
 	do {
+		std::cout << "getAllNeighbourhoodEdges: one cycle" << std::endl; //TODO
+		assert(currentOutgoingEdge);
+		assert(currentOutgoingEdge->twinEdge);
 		allEdges.push_back(currentOutgoingEdge);
 		allEdges.push_back(currentOutgoingEdge->twinEdge);
 		currentOutgoingEdge = currentOutgoingEdge->twinEdge->nextEdge;
 	} while (firstOutgoingEdge != currentOutgoingEdge);
-
-	for (auto eaEdge : allEdges) {
-		assert(eaEdge->isValid);
-	}
 
 	return allEdges;
 }
 
 int Mesh::selectLeastCostEdge() {
 	int select = 0;
-	for (int index = 1; index < HEE.size(); index++) {
+	for (int index = 1; index < (int) HEE.size(); index++) {
 		if (*HEE[index] < *HEE[select]) {
 			select = index;
 		}
@@ -730,6 +738,7 @@ std::vector<HEEdge*> Mesh::outgoingEdges(HEVertex* v) {
 }
 
 void Mesh::computeCollapseCost(HEEdge* e) {
+	std::cout << "computeCollapseCost: fn call" << std::endl; //TODO
 	/*
 	The collapse cost is the maximum among either side face,
 	which is the minimum dot product of norms amongst all
@@ -785,6 +794,14 @@ float Mesh::computeDotProduct(HEFace* faceA, HEFace* faceB) {
 		faceANormal.z * faceBNormal.z;
 }
 
+float Mesh::computeDotProduct(Vector3 vA, Vector3 vB) {
+
+	//The dot product of a 3d vector is the product of sums on each dimension
+	return vA.x * vB.x +
+		vA.y * vB.y +
+		vA.z * vB.z;
+}
+
 Vector3 Mesh::computeNormalizedNormal(HEFace* face) {
 	//Produce two vectors, to compute the normal
 	HEVertex* current = face->edge->endVertex;
@@ -811,11 +828,74 @@ Vector3 Mesh::computeNormalizedNormal(HEFace* face) {
 	return normal;
 }
 
+Vector3 Mesh::computeNormalizedNormal(Vector3 a, Vector3 b, Vector3 c) {
+	//Using coordinate notation formula:
+	Vector3 normal;
+	normal.x = a.y*b.z - a.z*b.y;
+	normal.y = a.z*b.x - a.x*b.z;
+	normal.z = a.x*b.y - a.y*b.x;
+
+	return normal;
+}
+
 std::pair<HEVertex*, HEVertex*> Mesh::getVertices(HEEdge* e) {
 	assert(e && e->isValid);
 	return std::pair<HEVertex*, HEVertex*>(
 		e->prevEdge->endVertex,
 		e->endVertex);
+}
+
+bool Mesh::checkGeometry(HEEdge* edge) {
+	HEVertex* u = edge->prevEdge->endVertex;
+	HEVertex* v = edge->endVertex;
+
+	//For each of the remaining faces if the edge were to be collapsed
+	for(HEFace* eaF : neighborFaces(u)) {
+		if (!faceHasVertex(eaF, v)) {
+			if (faceFlips(eaF, u, v)) {
+				std::cout << "checkGeometry: fail" << std::endl; //TODO
+				return false;
+			}
+		}
+	}
+	std::cout << "checkGeometry: pass" << std::endl; //TODO
+	return true;
+}
+
+bool Mesh::faceFlips(HEFace* f, HEVertex* u, HEVertex* v) {
+	Vector3 currNormal = computeNormalizedNormal(f);
+	HEVertex* currV;
+
+	//Attempt to create new face replacing u with v
+	currV = f->edge->endVertex;
+	Vector3 a = assignOtherIfNotEqual(currV, u, v);
+
+	currV = f->edge->nextEdge->endVertex;
+	Vector3 b = assignOtherIfNotEqual(currV, u, v);
+
+	currV = f->edge->prevEdge->endVertex;
+	Vector3 c = assignOtherIfNotEqual(currV, u, v);
+
+	Vector3 newNormal = computeNormalizedNormal(a, b, c);
+	
+	//Face flips if the dot product is <= 0
+	return computeDotProduct(currNormal, newNormal) <= 0;
+}
+
+Vector3 Mesh::assignOtherIfNotEqual(HEVertex* current, HEVertex* comparedV, HEVertex* otherV) {
+	Vector3 result;
+	if (current == comparedV) {
+		result.x = otherV->x;
+		result.y = otherV->y;
+		result.z = otherV->z;
+	}
+	else {
+		result.x = comparedV->x;
+		result.y = comparedV->y;
+		result.z = comparedV->z;
+	}
+
+	return result;
 }
 
 void Mesh::debugVertex(HEVertex* v) {

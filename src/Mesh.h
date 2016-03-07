@@ -154,7 +154,12 @@ private:
 	int selectLeastCostEdge();
 	float magnitude(HEVertex* u, HEVertex* v);
 	float computeDotProduct(HEFace* faceA, HEFace* faceB);
+	float computeDotProduct(Vector3 vA, Vector3 vB);
 	Vector3 computeNormalizedNormal(HEFace* face);
+	Vector3 computeNormalizedNormal(Vector3 a, Vector3 b, Vector3 c);
+	Vector3 assignOtherIfNotEqual(HEVertex* current, HEVertex* comparedV, HEVertex* otherV);
+	bool checkGeometry(HEEdge* edge);
+	bool faceFlips(HEFace* f, HEVertex* u, HEVertex* v);
 	bool canCollapse(HEEdge* __edge);
 public:
 	Mesh() {};
