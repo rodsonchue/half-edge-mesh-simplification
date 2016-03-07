@@ -16,6 +16,7 @@ Differences: Using half-edge data structure instead of the suggested "triangle" 
 #define _MESH_H_
 
 #include <vector>
+#include <set>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -149,7 +150,9 @@ private:
 	void debugVertex(HEVertex* v); //Remove after TODO
 	int getNumVerticesAdjacentTo(HEVertex* u, HEVertex* v);
 	std::vector<HEEdge*> getIncomingEdges(HEVertex* v);
+	std::vector<HEEdge*> getOutgoingEdges(HEVertex* v);
 	std::vector<HEEdge*> getAllNeighbourhoodEdges(HEVertex* v);
+	std::set<HEEdge*> getTwoRingNeighbourhoodEdges(HEVertex* v);
 	void computeCollapseCost(HEEdge* e);
 	int selectLeastCostEdge();
 	float magnitude(HEVertex* u, HEVertex* v);

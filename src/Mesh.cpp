@@ -57,6 +57,7 @@ void Mesh::simplifyMesh(const char* input, const char* output, int faceCnt){
 		std::cout << "Performing a series of collapses" << std::endl; //TODO
 		performCollapses(faceCnt);
 	}
+	std::cout << "Post processing face count: " << numValidFaces << std::endl;
 	std::cout << "Collapse complete" << std::endl;//TODO
 	removeInvalids();
 	std::cout << "Removed invalids" << std::endl;//TODO
@@ -367,6 +368,8 @@ void Mesh::collapseEdge(HEEdge* _edge) {
 
 	//Recompute edge collapse cost in neighbourhood of vectices neighbour to ve
 	//Also check if the edge is considered safe to collapse
+	
+	//**Not ideal implementation, but works to a pretty large extent
 	for (HEVertex* v : neighborVertices(ve)) {
 		for (HEEdge* eaEdge : outgoingEdges(v)) {
 			computeCollapseCost(eaEdge);
@@ -378,6 +381,15 @@ void Mesh::collapseEdge(HEEdge* _edge) {
 		computeCollapseCost(eaEdge);
 		canCollapse(eaEdge);
 	}
+
+	//This should be the correct implementation, but crashes the program for some reason.
+	/*
+	for (HEEdge* eaEdge : getTwoRingNeighbourhoodEdges(ve)) {
+		computeCollapseCost(eaEdge);
+		canCollapse(eaEdge);
+	}
+	*/
+
 	
 }
 
@@ -614,6 +626,23 @@ std::vector<HEEdge*> Mesh::getIncomingEdges(HEVertex* v) {
 	return incomingEdges;
 }
 
+std::vector<HEEdge*> Mesh::getOutgoingEdges(HEVertex* v) {
+	std::vector<HEEdge*> outgoingEdges;
+	HEEdge* firstEdge = v->outEdge;
+	HEEdge* currentEdge = v->outEdge;
+
+	do {
+		outgoingEdges.push_back(currentEdge);
+		currentEdge = currentEdge->twinEdge->nextEdge;
+	} while (firstEdge != currentEdge);
+
+	for (auto eaEdge : outgoingEdges) {
+		assert(eaEdge->isValid && eaEdge->twinEdge->endVertex == v);
+	}
+
+	return outgoingEdges;
+}
+
 bool Mesh::canCollapse(HEEdge* __edge) {
 	std::cout << "test can collapse" << std::endl; //TODO
 	//An invalid edge can't be collapsed
@@ -675,6 +704,25 @@ std::vector<HEEdge*> Mesh::getAllNeighbourhoodEdges(HEVertex* v) {
 
 	return allEdges;
 }
+
+std::set<HEEdge*> Mesh::getTwoRingNeighbourhoodEdges(HEVertex* v) {
+	assert(v && v->isValid);
+	std::set<HEEdge*> allEdges;
+	for (HEVertex* eaNeighbourV : neighborVertices(v)) {
+		for (HEEdge* eaIncomingEdge : getIncomingEdges(eaNeighbourV)) {
+			allEdges.insert(eaIncomingEdge);
+		}
+		for (HEEdge* eaOutgoingEdge : getOutgoingEdges(eaNeighbourV)) {
+			allEdges.insert(eaOutgoingEdge);
+		}
+	}
+	for (auto eaEdge : allEdges) {
+		assert(eaEdge->isValid);
+	}
+
+	return allEdges;
+}
+
 
 int Mesh::selectLeastCostEdge() {
 	int select = 0;
