@@ -1,3 +1,8 @@
+/*	CS3242 3D Modeling And Animation
+*	Programming Assignment I
+*	School of Computing
+*	National University of Singapore
+*/
 /*
 Author: Rodson Chue Le Sheng
 Matric No. A0110787A
